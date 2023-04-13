@@ -1,0 +1,74 @@
+on:
+  push:
+    branches-ignore:
+      - "ga-ignore-*"
+  pull_request:
+    branches-ignore:
+      - "ga-ignore-*"
+env:
+  EXECUTABLES: "test"
+  MIRROR_URL: "git@github.com:EpitechPromo2027/B-DOP-200-BAR-2-1-chocolatine-lucia.jimenez-diaz.git"
+  ARGV: ""
+
+jobs:
+  check_coding_style:
+    runs-on: ubuntu-lastest
+    container: ghcr.io/epitech/coding-style-checker:latest
+    steps:
+      - uses: actions/checkout@v3
+      - id: check_coding_style
+        run: |
+          check.sh $(pwd) $(pwd)
+          if [ ! -e coding-style-reports.log ]
+          then
+            exit 1
+          fi
+          SIZE=$(wc -c < coding-style-reports.log)
+          if [ $SIZE -eq 0 ]
+          then
+            exit 0
+          else
+            while IFS= read -r line
+            do
+              echo "::error::$line"
+            done < coding-style-reports.log
+            exit
+
+  check_program_compilation:
+    runs-on: ubuntu-latest
+    container:
+      image: epitechcontent/epitest-docker
+    steps:
+      - uses: actions/checkout@v3
+      - id: check_program_compilation
+        run: make
+        timeout-minutes: 2
+      - run: make clean
+      - run: |
+          for x in ${{ env.EXECUTABLES }};
+          do
+            if [ ! test -x ./$x ]
+            then
+              exit 84
+            fi
+          done
+
+  run_tests:
+    runs-on: ubuntu-lastest
+    container:
+      image: epitechcontent/epitest-docker
+    steps:
+      - uses: actions/checkout@v3
+      - id: run_test
+        run: make tests_run
+        timeout-minutes: 2
+
+  push_to_mirror:
+    run-on: ubuntu-lastest
+    steps:
+      - uses: actions/checkout@v3
+      - name: push_to_mirror
+        uses: pixta-dev/repository-mirroring-action@v1
+        with:
+          target_repo_url: ${{ env.MIRROR_URL }}
+          ssh_private_key: ${{ secrets.GIT_SSH_PRIVATE_KEY }}
